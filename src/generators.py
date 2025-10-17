@@ -4,10 +4,12 @@ from abc import ABC, abstractmethod
 class DataGenerator(ABC):
     '''
     Abstract base class for data generation.
+    
     All data generators must implement three methods:
     - generate(n): Create n samples from the distribution
     - name(): Return a descriptive name for reporting
     - null_value(): Return the true parameter value under H0
+
     This ensures all generators can be used interchangeably in simulation
     '''
     @abstractmethod
