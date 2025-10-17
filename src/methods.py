@@ -26,7 +26,6 @@ class ForcedSamplingBandit(ABC):
         '''
         pass
     
-    @property
     @abstractmethod
     def choose_a(self, t, x):
         '''
@@ -46,7 +45,6 @@ class ForcedSamplingBandit(ABC):
         '''
         pass
 
-    @property
     @abstractmethod
     def update_beta(self, rwd, t):
         '''
