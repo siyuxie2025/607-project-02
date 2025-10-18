@@ -97,6 +97,57 @@ class NormalGenerator(DataGenerator):
     @property
     def null_value(self):
         return self.mean
+    
+
+class TruncatedNormalGenerator(DataGenerator):
+    """Generate data from a truncated normal distribution.
+    
+    The truncated normal distribution is a normal distribution bounded
+    within a specified range. It is useful for modeling data that cannot
+    exceed certain limits.
+    
+    Parameters
+    ----------
+    mean : float, default=0
+        Mean of the underlying normal distribution
+    std : float, default=1
+        Standard deviation of the underlying normal distribution
+    low : float, default=-5
+        Lower bound of the truncation
+    high : float, default=5
+        Upper bound of the truncation
+    
+    Examples
+    --------
+    >>> gen = TruncatedNormalGenerator(mean=0, std=1, low=-2, high=2)
+    >>> data = gen.generate(100)
+    >>> gen.name()
+    'TruncatedNormal(μ=0, σ=1, low=-5, high=5)'
+    """
+
+    def __init__(self, mean=0.0, std=1.0, low=-5.0, high=5.0):
+        self.mean = mean
+        self.std = std
+        self.low = low
+        self.high = high
+    
+    def generate(self, n, rng=None):
+        if rng is None:
+            rng = np.random.default_rng()
+        samples = []
+        while len(samples) < n:
+            sample = rng.normal(loc=self.mean, scale=self.std)
+            if self.low <= sample <= self.high:
+                samples.append(sample)
+        return np.array(samples)
+    
+    @property
+    def name(self):
+        return f'TruncatedNormal(mean={self.mean}, std={self.std}, low={self.low}, high={self.high})'
+    
+    @property
+    def null_value(self):
+        return self.mean
 
 class UniformGenerator(DataGenerator):
     """Generate data from a uniform distribution.
