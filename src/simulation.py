@@ -17,7 +17,7 @@ class SimulationStudy:
     - Running factorial designs (all combinations of generators and bandit algorithms)
     - Computing Monte Carlo confidence intervals for estimates
     - Storing and reporting results"""
-    def __init__(self, n_sim, K, d, T, q, h, tau, err_generator, context_generator, beta_low=0.0, beta_high=1.0):
+    def __init__(self, n_sim, K, d, T, q, h, tau, err_generator, context_generator, beta_low=0.0, beta_high=1.0, random_seed=None):
         self.n_sim = n_sim
         self.K = K
         self.d = d
@@ -27,6 +27,13 @@ class SimulationStudy:
         self.tau = tau
         self.err_generator = err_generator
         self.context_generator = context_generator
+        self.random_seed = random_seed
+
+        if random_seed is not None:
+            self.rng = np.random.default_rng(random_seed)
+            np.random.seed(random_seed)
+        else:
+            self.rng = np.random.default_rng()
 
         self.q_err = np.quantile(self.err_generator(2000), self.tau)
 
@@ -194,8 +201,30 @@ class SimulationStudy:
 
         # Print summary statistics
         print(f"\n=== Simulation Summary (n_sim={self.n_sim}) ===")
-        print(f"Final Median Regret - Risk Aware: {median_risk_aware[-1]:.2f}")
-        print(f"Final Median Regret - OLS: {median_ols[-1]:.2f}")
+        print(f"Final Median Regret - Risk Aware: {np.median(cumulated_regret_RiskAware[:,-1]):.2f}")
+        print(f"Final Median Regret - OLS: {np.median(cumulated_regret_OLS[:,-1]):.2f}")
         print(f"Mean Action Disagreement: {np.mean(num_diff):.2%}")
         print(f"Std Action Disagreement: {np.std(num_diff):.2%}")
 
+
+## usage example:
+if __name__ == "__main__":
+    n_sim = 50
+    K = 2
+    d = 10
+    T = 500
+    q = 0.1
+    h = 0.5
+    tau = 0.5
+
+    RANDOM_SEED = 1010
+
+    err_generator = TGenerator(df=3)
+    context_generator = NormalGenerator(mean=0.0, std=1.0)
+
+    study = SimulationStudy(n_sim=n_sim, K=K, d=d, T=T, q=q, h=h, tau=tau, random_seed=RANDOM_SEED,
+                                err_generator=err_generator,
+                                context_generator=context_generator)
+
+    results = study.run_simulation()
+    study.plot_results(results=results, use_ci=True, ci_level=0.95)
