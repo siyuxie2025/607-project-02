@@ -199,10 +199,10 @@ class OLSBandit(ForcedSamplingBandit):
     def __init__(self, q, h, d, K, beta_real_value):
         """Initialize the OLSBandit with given parameters.
         """
-        self.Sx = np.empty((K, 0)).tolist()
-        self.Sr = np.empty((K, 0)).tolist()
-        self.Tx = np.empty((K, 0)).tolist()
-        self.Tr = np.empty((K, 0)).tolist()
+        self.Sx = [[] for _ in range(K)]
+        self.Sr = [[] for _ in range(K)]
+        self.Tx = [[] for _ in range(K)]
+        self.Tr = [[] for _ in range(K)]
 
         self.beta_a = np.random.uniform(0., 2., (K, d))
         self.beta_t = np.random.uniform(0., 2., (K, d))
@@ -227,7 +227,7 @@ class OLSBandit(ForcedSamplingBandit):
             self.n += 1
         if t in self.set:
             ind = list(self.set).index(t)
-            self.action = ind // self.q
+            self.action = int(ind // self.q)
             self.Tx[self.action].append(x)
         else:
             # no intercept
@@ -235,7 +235,7 @@ class OLSBandit(ForcedSamplingBandit):
             max_forced_est = np.amax(forced_est)
             K_hat = np.where(forced_est > max_forced_est - self.h/2.)[0]
             all_est = [np.dot(self.beta_a[k_hat], x) for k_hat in K_hat]
-            self.action = K_hat[np.argmax(all_est)]
+            self.action = int(K_hat[np.argmax(all_est)])
             
         self.Sx[self.action].append(x)
 
