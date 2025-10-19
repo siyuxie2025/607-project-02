@@ -75,32 +75,34 @@ class SimulationStudy:
 
 
     def _run_one_timestep(self, RAB, OLSB, t, diff, err_generator=None):
-        """Run one timestep of the simulation for both bandit algorithms.
-        If err_generator is not provided, use the one from initialization.
-        """
+        """Run one timestep of the simulation for both bandit algorithms."""
         if err_generator is None:
             err_generator = self.err_generator
 
-        x = self.context_generator.generate(1, rng=self.rng)[0]
+        # Generate d-dimensional context vector
+        x = self.context_generator.generate(self.d, rng=self.rng)
+        if x.ndim > 1:
+            x = x.ravel()
+        
         a = RAB.choose_a(t, x)
         a_OLS = OLSB.choose_a(t, x)
 
         diff += (a != a_OLS)
 
         # Risk Aware Bandit update
-        rwd = np.dot(self.beta_real_value, x)[a] + self.alpha_real_value[a]
+        rwd = np.dot(self.beta_real_value[a], x) + self.alpha_real_value[a]
         rwd_noisy = rwd + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng) - self.q_err)
         RAB.update_beta(rwd_noisy, t)
 
         # OLS Bandit update
-        rwd_OLS = np.dot(self.beta_real_value, x)[a_OLS] + self.alpha_real_value[a_OLS]
+        rwd_OLS = np.dot(self.beta_real_value[a_OLS], x) + self.alpha_real_value[a_OLS]
         rwd_OLS_noisy = rwd_OLS + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng) - self.q_err)
         OLSB.update_beta(rwd_OLS_noisy, t)
 
         # Optimal rewards (same for both)
-        opt_rwd = np.amax(np.dot(self.beta_real_value, x) + self.alpha_real_value)  # optimal reward
+        opt_rwd = np.amax(np.dot(self.beta_real_value, x) + self.alpha_real_value)
 
-        return rwd, RAB, rwd_OLS, OLSB, opt_rwd, diff
+        return rwd, RAB, rwd_OLS, OLSB, opt_rwd, opt_rwd, diff
 
     
 
