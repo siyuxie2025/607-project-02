@@ -84,16 +84,19 @@ class RiskAwareBandit(ForcedSamplingBandit):
         beta_real_value (np.ndarray) : True coefficient values for each arm
         alpha_real_value (np.ndarray) : True intercept values for each arm
         '''
-        self.Tx = np.empty((K, 0)).tolist()
-        self.Sx = np.empty((K, 0)).tolist()
-        self.Tr = np.empty((K, 0)).tolist()
-        self.Sr = np.empty((K, 0)).tolist()
+        self.Tx = [[] for _ in range(K)]
+        self.Sx = [[] for _ in range(K)]
+        self.Tr = [[] for _ in range(K)]
+        self.Sr = [[] for _ in range(K)]
 
         self.q = q
         self.h = h
         self.tau = tau
         self.d = d
         self.K = K
+
+        self.set = np.array([])
+        self.action = None  # Initialize action as well
 
         self.beta_t = np.random.uniform(0., 2., (K, d)) # forced sample estimator
         self.beta_a = np.random.uniform(0., 2., (K, d)) # all sample estimator
@@ -133,16 +136,16 @@ class RiskAwareBandit(ForcedSamplingBandit):
         if t == ((2**self.n - 1)*self.K*self.q + 1):
             self.set = np.arange(t, t+self.q*self.K)
             self.n += 1
+
         if t in self.set: 
             ind = list(self.set).index(t)
-            self.action = ind // self.q
+            self.action = int(ind // self.q)
             self.Tx[self.action].append(x)
         else:
             forced_est = np.dot(self.beta_t, x) + self.alpha_t
             max_forced_est = np.amax(forced_est)
             K_hat = np.where(forced_est > max_forced_est - self.h/2.)[0]
             all_est = [np.dot(self.beta_a[k_hat], x) + self.alpha_a[k_hat] for k_hat in K_hat]
-            # print(f"K_hat: {K_hat}, all_est: {all_est}")  ## print the result
             self.action = K_hat[np.argmax(all_est)]
 
         self.Sx[self.action].append(x)
@@ -151,7 +154,6 @@ class RiskAwareBandit(ForcedSamplingBandit):
     
     def update_beta(self, rwd, t):
         """ Update the estimators based on the received reward.
-
         For the first d samples, random initialization is used.
 
         Parameters
@@ -185,10 +187,10 @@ class RiskAwareBandit(ForcedSamplingBandit):
         else:
             self.Tr[self.action].append(rwd)
             self.Sr[self.action].append(rwd)
-            self.beta_t[self.action] = np.random.uniform(0., 1., self.d)
-            self.beta_a[self.action] = np.random.uniform(0., 1., self.d)
-            self.alpha_t[self.action] = np.random.uniform(0., 1.)
-            self.alpha_a[self.action] = np.random.uniform(0., 1.)
+            self.beta_t[self.action] = np.random.uniform(0., 2., self.d)
+            self.beta_a[self.action] = np.random.uniform(0., 2., self.d)
+            self.alpha_t[self.action] = np.random.uniform(0., 2.)
+            self.alpha_a[self.action] = np.random.uniform(0., 2.)
 
             self.beta_error_a[self.action] = np.linalg.norm(self.beta_a[self.action] - self.beta_real_value[self.action])
             self.beta_error_t[self.action] = np.linalg.norm(self.beta_t[self.action] - self.beta_real_value[self.action])
@@ -218,6 +220,9 @@ class OLSBandit(ForcedSamplingBandit):
         self.K = K
 
         self.n = 0
+
+        self.set = np.array([])
+        self.action = None  # Initialize action as well
 
     def choose_a(self, t, x):
         """Choose an action based on the current time step and context vector.
