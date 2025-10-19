@@ -197,7 +197,7 @@ class SimulationStudy:
         ax2.legend()
 
         plt.tight_layout()
-        plt.savefig(f'simulation_results_d{self.d}_K{self.K}_tau{self.tau}.pdf', 
+        plt.savefig(f'results/simulation_results_d{self.d}_K{self.K}_tau{self.tau}.pdf', 
                    bbox_inches='tight', dpi=300)
         plt.show()
 
