@@ -20,7 +20,7 @@ class SimulationStudy:
     - Storing and reporting results
     """
     def __init__(self, n_sim, K, d, T, q, h, tau, err_generator, context_generator, 
-                 beta_low=0.0, beta_high=1.0, random_seed=None):
+                 beta_low=[0.0, 0.5], beta_high=[1, 1.5], random_seed=None):
         self.n_sim = n_sim
         self.K = K
         self.d = d
@@ -41,7 +41,11 @@ class SimulationStudy:
         self.q_err = np.quantile(self.err_generator.generate(2000, rng=self.rng), self.tau)
 
         # Generate real beta and alpha values once for all simulations
-        self.beta_real_value = UniformGenerator(low=beta_low, high=beta_high).generate((self.K, self.d), rng=self.rng)
+        beta1 = UniformGenerator(low=beta_low[0], high=beta_high[0]).generate((self.K//2, self.d), rng=self.rng)
+        beta2 = UniformGenerator(low=beta_low[1], high=beta_high[1]).generate((self.K-self.K//2, self.d), rng=self.rng)
+        self.beta_real_value = np.vstack([beta1, beta2])
+        
+        
         self.alpha_real_value = UniformGenerator(low=beta_low, high=beta_high).generate(self.K, rng=self.rng)
 
         # Store results
@@ -254,8 +258,22 @@ class SimulationStudy:
         print(f"Mean Action Disagreement: {np.mean(num_diff):.2%}")
         print(f"Std Action Disagreement: {np.std(num_diff):.2%}")
 
-    def plot_beta_error_results(self, results=None, figsize=(10, 6), use_ci=True, ci_level=0.95):
-        """Plot beta estimation error results over time for both bandit algorithms."""
+    def plot_beta_error_results(self, results=None, figsize=(10, 6), use_ci=True, ci_level=0.95, separate_arms=False):
+        """Plot beta estimation error results over time for both bandit algorithms.
+        
+        Parameters
+        ----------
+        results : dict, optional
+            Results dictionary
+        figsize : tuple
+            Figure size
+        use_ci : bool
+            If True, show confidence intervals
+        ci_level : float
+            Confidence level (e.g., 0.95 for 95% CI)
+        separate_arms : bool
+            If True, plot each arm in a separate subplot. If False, plot all arms together.
+        """
         if results is None:
             if self.results is None:
                 raise ValueError("No results to plot. Please run the simulation first.")
@@ -269,44 +287,98 @@ class SimulationStudy:
 
         steps = np.arange(1, self.T + 1)
 
-        fig, ax = plt.subplots(figsize=figsize)
-
-        # Plot each arm
-        for k in range(self.K):
-            # Extract errors for this arm: (n_sim, T)
-            rab_k = beta_errors_rab[:, :, k]
-            ols_k = beta_errors_ols[:, :, k]
+        if separate_arms:
+            # Plot each arm in separate subplot
+            fig, axes = plt.subplots(1, self.K, figsize=(figsize[0] * self.K / 2, figsize[1]))
+            if self.K == 1:
+                axes = [axes]
             
-            # Mean across simulations
-            mean_rab = np.mean(rab_k, axis=0)
-            mean_ols = np.mean(ols_k, axis=0)
+            for k in range(self.K):
+                ax = axes[k]
+                
+                # Extract errors for this arm: (n_sim, T)
+                rab_k = beta_errors_rab[:, :, k]
+                ols_k = beta_errors_ols[:, :, k]
+                
+                # Mean across simulations
+                mean_rab = np.mean(rab_k, axis=0)
+                mean_ols = np.mean(ols_k, axis=0)
+                
+                if use_ci:
+                    se_rab = np.std(rab_k, axis=0, ddof=1) / np.sqrt(self.n_sim)
+                    se_ols = np.std(ols_k, axis=0, ddof=1) / np.sqrt(self.n_sim)
+                    
+                    t_crit = stats.t.ppf((1 + ci_level) / 2, self.n_sim - 1)
+                    
+                    lower_rab = mean_rab - t_crit * se_rab
+                    upper_rab = mean_rab + t_crit * se_rab
+                    lower_ols = mean_ols - t_crit * se_ols
+                    upper_ols = mean_ols + t_crit * se_ols
+                    
+                    ax.fill_between(steps, lower_rab, upper_rab, color='red', alpha=0.2, label=f'{int(ci_level*100)}% CI RAB')
+                    ax.fill_between(steps, lower_ols, upper_ols, color='blue', alpha=0.2, label=f'{int(ci_level*100)}% CI OLS')
+
+                ax.plot(steps, mean_rab, 'r-', label='Risk Aware Bandit', linewidth=2)
+                ax.plot(steps, mean_ols, 'b--', label='OLS Bandit', linewidth=2)
+                
+                ax.set_xlabel('Time', fontsize=11)
+                ax.set_ylabel('Beta Estimation Error', fontsize=11)
+                ax.set_title(f'Arm {k}', fontsize=12, fontweight='bold')
+                ax.legend(loc='best', fontsize=9)
+                ax.grid(True, alpha=0.3)
+                
+                # Print summary for this arm
+                print(f"\n--- Arm {k} Summary ---")
+                print(f"Final Beta Error - Risk Aware: {mean_rab[-1]:.4f}")
+                print(f"Final Beta Error - OLS: {mean_ols[-1]:.4f}")
             
-            if use_ci:
-                se_rab = np.std(rab_k, axis=0, ddof=1) / np.sqrt(self.n_sim)
-                se_ols = np.std(ols_k, axis=0, ddof=1) / np.sqrt(self.n_sim)
-                
-                t_crit = stats.t.ppf((1 + ci_level) / 2, self.n_sim - 1)
-                
-                lower_rab = mean_rab - t_crit * se_rab
-                upper_rab = mean_rab + t_crit * se_rab
-                lower_ols = mean_ols - t_crit * se_ols
-                upper_ols = mean_ols + t_crit * se_ols
-                
-                ax.fill_between(steps, lower_rab, upper_rab, alpha=0.2)
-                ax.fill_between(steps, lower_ols, upper_ols, alpha=0.2)
+            plt.suptitle(f'Beta Estimation Error by Arm (d={self.d}, K={self.K}, τ={self.tau})', 
+                        fontsize=14, y=1.02)
+        else:
+            # Plot all arms together in one plot
+            fig, ax = plt.subplots(figsize=figsize)
 
-            ax.plot(steps, mean_rab, label=f'Risk Aware - Arm {k}', linestyle='-', linewidth=2)
-            ax.plot(steps, mean_ols, label=f'OLS - Arm {k}', linestyle='--', linewidth=2)
+            colors_rab = plt.cm.Reds(np.linspace(0.5, 0.9, self.K))
+            colors_ols = plt.cm.Blues(np.linspace(0.5, 0.9, self.K))
+            
+            for k in range(self.K):
+                # Extract errors for this arm: (n_sim, T)
+                rab_k = beta_errors_rab[:, :, k]
+                ols_k = beta_errors_ols[:, :, k]
+                
+                # Mean across simulations
+                mean_rab = np.mean(rab_k, axis=0)
+                mean_ols = np.mean(ols_k, axis=0)
+                
+                if use_ci:
+                    se_rab = np.std(rab_k, axis=0, ddof=1) / np.sqrt(self.n_sim)
+                    se_ols = np.std(ols_k, axis=0, ddof=1) / np.sqrt(self.n_sim)
+                    
+                    t_crit = stats.t.ppf((1 + ci_level) / 2, self.n_sim - 1)
+                    
+                    lower_rab = mean_rab - t_crit * se_rab
+                    upper_rab = mean_rab + t_crit * se_rab
+                    lower_ols = mean_ols - t_crit * se_ols
+                    upper_ols = mean_ols + t_crit * se_ols
+                    
+                    ax.fill_between(steps, lower_rab, upper_rab, color=colors_rab[k], alpha=0.2)
+                    ax.fill_between(steps, lower_ols, upper_ols, color=colors_ols[k], alpha=0.2)
 
-        ax.set_xlabel('Time', fontsize=12)
-        ax.set_ylabel('Mean Beta Estimation Error', fontsize=12)
-        ax.set_title(f'Beta Estimation Error over Time, d={self.d}, K={self.K}, tau={self.tau}', 
-                    fontsize=14)
-        ax.legend(loc='best')
-        ax.grid(True, alpha=0.3)
+                ax.plot(steps, mean_rab, color=colors_rab[k], label=f'Risk Aware - Arm {k}', 
+                       linestyle='-', linewidth=2)
+                ax.plot(steps, mean_ols, color=colors_ols[k], label=f'OLS - Arm {k}', 
+                       linestyle='--', linewidth=2)
+
+            ax.set_xlabel('Time', fontsize=12)
+            ax.set_ylabel('Mean Beta Estimation Error', fontsize=12)
+            ax.set_title(f'Beta Estimation Error over Time (d={self.d}, K={self.K}, τ={self.tau})', 
+                        fontsize=14)
+            ax.legend(loc='best')
+            ax.grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plt.savefig(f'results/beta_error_d{self.d}_K{self.K}_tau{self.tau}.pdf', 
+        suffix = '_separate' if separate_arms else '_combined'
+        plt.savefig(f'results/beta_error{suffix}_d{self.d}_K{self.K}_tau{self.tau}.pdf', 
                    bbox_inches='tight', dpi=300)
         plt.show()
 
@@ -334,5 +406,10 @@ if __name__ == "__main__":
     )
 
     results = study.run_simulation()
-    study.plot_regret_results(results=results, use_ci=True, ci_level=0.95)
-    study.plot_beta_error_results(results=results, use_ci=True, ci_level=0.95)
+    study.plot_regret_results(use_ci=True, ci_level=0.95)
+
+    # Option 1: Plot all arms together (default)
+    study.plot_beta_error_results(use_ci=True, ci_level=0.95, separate_arms=False)
+
+    # Option 2: Plot each arm in separate subplot (what you want!)
+    study.plot_beta_error_results(use_ci=True, ci_level=0.95, separate_arms=True)
