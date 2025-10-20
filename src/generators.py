@@ -208,13 +208,14 @@ class TGenerator(DataGenerator):
     't(df=10)'
     """
     
-    def __init__(self, df):
+    def __init__(self, df, scale=1):
         self.df = df
+        self.scale = scale
     
-    def generate(self, n, rng=None):
+    def generate(self, n, scale=1, rng=None):
         if rng is None:
             rng = np.random.default_rng()
-        return rng.standard_t(self.df, n)
+        return self.scale*rng.standard_t(self.df, n)
     
     @property
     def name(self):
