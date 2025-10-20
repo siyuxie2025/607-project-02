@@ -212,7 +212,7 @@ class TGenerator(DataGenerator):
         self.df = df
         self.scale = scale
     
-    def generate(self, n, scale=1, rng=None):
+    def generate(self, n, rng=None):
         if rng is None:
             rng = np.random.default_rng()
         return self.scale*rng.standard_t(self.df, n)
