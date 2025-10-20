@@ -8,6 +8,7 @@ from methods import RiskAwareBandit, OLSBandit
 from tqdm import tqdm
 from generators import NormalGenerator, TGenerator, UniformGenerator
 
+
 class SimulationStudy:
     """
     Orchestrate simulation studies for assessing bandit algorithms.
@@ -16,8 +17,10 @@ class SimulationStudy:
     - Running individual scenarios (one generator + one bandit algorithm)
     - Running factorial designs (all combinations of generators and bandit algorithms)
     - Computing Monte Carlo confidence intervals for estimates
-    - Storing and reporting results"""
-    def __init__(self, n_sim, K, d, T, q, h, tau, err_generator, context_generator, beta_low=0.0, beta_high=1.0, random_seed=None):
+    - Storing and reporting results
+    """
+    def __init__(self, n_sim, K, d, T, q, h, tau, err_generator, context_generator, 
+                 beta_low=0.0, beta_high=1.0, random_seed=None):
         self.n_sim = n_sim
         self.K = K
         self.d = d
@@ -44,43 +47,52 @@ class SimulationStudy:
         # Store results
         self.results = None
 
-        self.beta_error_records = []
-
-
     def run_one_scenario(self):
-        """Run one scenario to compute cumulative regret for both bandit algorithms.    
-        """
-        RAB = RiskAwareBandit(q = self.q, h = self.h, tau = self.tau, 
-                              d = self.d, K = self.K, 
-                              beta_real_value = self.beta_real_value, 
-                              alpha_real_value = self.alpha_real_value)
-        OLSB = OLSBandit(q = self.q, h = self.h, d = self.d, K = self.K,
-                         beta_real_value= self.beta_real_value)
-
+        """Run one scenario to compute cumulative regret for both bandit algorithms."""
+        RAB = RiskAwareBandit(
+            q=self.q, h=self.h, tau=self.tau, 
+            d=self.d, K=self.K, 
+            beta_real_value=self.beta_real_value, 
+            alpha_real_value=self.alpha_real_value
+        )
+        OLSB = OLSBandit(
+            q=self.q, h=self.h, d=self.d, K=self.K,
+            beta_real_value=self.beta_real_value
+        )
+        
         diff = 0
         RWD = []
         RWD_OLS = []
         opt_RWD = []
         opt_RWD_OLS = []
-
+        
+        # Track beta errors and estimates for this scenario
         beta_errors_rab = []
         beta_errors_ols = []
+        beta_estimates_rab = []
+        beta_estimates_ols = []
 
-        for t in tqdm(range(1,self.T+1), desc="Running one scenario"):
-            rwd, RAB, rwd_OLS, OLSB, opt_rwd, opt_rwd_OLS, diff = self._run_one_timestep(RAB, OLSB, t, diff)
+        for t in tqdm(range(1, self.T + 1), desc="Running one scenario", leave=False):
+            rwd, RAB, rwd_OLS, OLSB, opt_rwd, opt_rwd_OLS, diff = self._run_one_timestep(
+                RAB, OLSB, t, diff
+            )
             RWD.append(rwd)
             RWD_OLS.append(rwd_OLS)
             opt_RWD.append(opt_rwd)
             opt_RWD_OLS.append(opt_rwd_OLS)
-
+            
+            # Record beta errors and estimates at each timestep
             beta_errors_rab.append(RAB.beta_error_a.copy())
             beta_errors_ols.append(OLSB.beta_error_a.copy())
+            beta_estimates_rab.append(RAB.beta_a.copy())  # Shape: (K, d)
+            beta_estimates_ols.append(OLSB.beta_a.copy())  # Shape: (K, d)
         
         regret_RAB = np.cumsum(opt_RWD) - np.cumsum(RWD)
         regret_OLSB = np.cumsum(opt_RWD_OLS) - np.cumsum(RWD_OLS)
 
-        return regret_RAB, regret_OLSB, diff, beta_errors_rab, beta_errors_ols
-
+        return (regret_RAB, regret_OLSB, diff, 
+                beta_errors_rab, beta_errors_ols,
+                beta_estimates_rab, beta_estimates_ols)
 
     def _run_one_timestep(self, RAB, OLSB, t, diff, err_generator=None):
         """Run one timestep of the simulation for both bandit algorithms."""
@@ -99,12 +111,12 @@ class SimulationStudy:
 
         # Risk Aware Bandit update
         rwd = np.dot(self.beta_real_value[a], x) + self.alpha_real_value[a]
-        rwd_noisy = rwd + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng) - self.q_err)
+        rwd_noisy = rwd + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng)[0] - self.q_err)
         RAB.update_beta(rwd_noisy, t)
 
         # OLS Bandit update
         rwd_OLS = np.dot(self.beta_real_value[a_OLS], x) + self.alpha_real_value[a_OLS]
-        rwd_OLS_noisy = rwd_OLS + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng) - self.q_err)
+        rwd_OLS_noisy = rwd_OLS + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng)[0] - self.q_err)
         OLSB.update_beta(rwd_OLS_noisy, t)
 
         # Optimal rewards (same for both)
@@ -112,43 +124,55 @@ class SimulationStudy:
 
         return rwd, RAB, rwd_OLS, OLSB, opt_rwd, opt_rwd, diff
 
-    
-
     def run_simulation(self):
+        """Run multiple simulation replications and store results.
+        
+        Each simulation uses the SAME true parameters (beta, alpha) but different
+        random realizations of contexts and errors. This estimates the expected
+        performance of each algorithm on this specific problem instance.
+        """
         cumulated_regret_RiskAware = []
         cumulated_regret_OLS = []
         num_diff = []
-
+        
+        # Store beta errors and estimates
         all_beta_errors_rab = []
         all_beta_errors_ols = []
         all_beta_estimates_rab = []
         all_beta_estimates_ols = []
 
-        for _ in tqdm(range(self.n_sim), desc="Running simulations"):
-            regret_RAB, regret_OLSB, diff, beta_errors_rab, beta_errors_ols = self.run_one_scenario()
+        for sim in tqdm(range(self.n_sim), desc="Running simulations"):
+            # Unpack all return values including beta errors and estimates
+            (regret_RAB, regret_OLSB, diff, 
+             beta_errors_rab, beta_errors_ols,
+             beta_estimates_rab, beta_estimates_ols) = self.run_one_scenario()
 
             cumulated_regret_RiskAware.append(regret_RAB)
             cumulated_regret_OLS.append(regret_OLSB)
-            num_diff.append(diff/self.T)
-
-            all_beta_errors_rab.append(beta_errors_rab)
-            all_beta_errors_ols.append(np.array(beta_errors_ols)) 
-
-
+            num_diff.append(diff / self.T)
+            
+            # Store errors and estimates as numpy arrays
+            all_beta_errors_rab.append(np.array(beta_errors_rab))  # Shape: (T, K)
+            all_beta_errors_ols.append(np.array(beta_errors_ols))  # Shape: (T, K)
+            all_beta_estimates_rab.append(np.array(beta_estimates_rab))  # Shape: (T, K, d)
+            all_beta_estimates_ols.append(np.array(beta_estimates_ols))  # Shape: (T, K, d)
+        
+        # Store results for later access
         self.results = {
-            "cumulated_regret_RiskAware": np.array(cumulated_regret_RiskAware),
+            "cumulated_regret_RiskAware": np.array(cumulated_regret_RiskAware), 
             "cumulated_regret_OLS": np.array(cumulated_regret_OLS),
-            "beta_error_rab": np.array(all_beta_errors_rab),
-            "beta_error_ols": np.array(all_beta_errors_ols),
-            "num_diff": np.array(num_diff)
+            "beta_errors_rab": np.array(all_beta_errors_rab),  # Shape: (n_sim, T, K)
+            "beta_errors_ols": np.array(all_beta_errors_ols),  # Shape: (n_sim, T, K)
+            "beta_estimates_rab": np.array(all_beta_estimates_rab),  # Shape: (n_sim, T, K, d)
+            "beta_estimates_ols": np.array(all_beta_estimates_ols),  # Shape: (n_sim, T, K, d)
+            "num_diff": num_diff
         }
-
+        
         return self.results
 
-    def plot_regret_results(self, results = None, figsize = (10,6), use_ci = True, ci_level = 0.95):
-        """Plot simulation results with confidence intervals or min/max ranges.
-        """
-        steps = np.arange(1,self.T+1)
+    def plot_regret_results(self, results=None, figsize=(10, 6), use_ci=True, ci_level=0.95):
+        """Plot simulation results with confidence intervals or min/max ranges."""
+        steps = np.arange(1, self.T + 1)
 
         if results is None:
             if self.results is None:
@@ -159,7 +183,7 @@ class SimulationStudy:
         cumulated_regret_OLS = results["cumulated_regret_OLS"]
         num_diff = results["num_diff"]
 
-        fig, axes = plt.subplots(1, 2, figsize=(figsize[0]*2, figsize[1]))
+        fig, axes = plt.subplots(1, 2, figsize=(figsize[0] * 2, figsize[1]))
 
         # Left plot: Cumulative Regret
         ax1 = axes[0]
@@ -179,7 +203,7 @@ class SimulationStudy:
             lower_ols = mean_ols - t_crit * se_ols
             upper_ols = mean_ols + t_crit * se_ols
 
-            ci_label = f"{int(ci_level*100)}% CI"
+            ci_label = f"{int(ci_level * 100)}% CI"
         else:
             # Min/max ranges
             lower_risk_aware = np.min(cumulated_regret_RiskAware, axis=0)
@@ -202,18 +226,21 @@ class SimulationStudy:
                 label='OLS Bandit (Mean)', linewidth=2)
 
         ax1.set_xlabel('Time', fontsize=12)
-        ax1.set_ylabel(f'Cumulative Regret', fontsize=12)
+        ax1.set_ylabel('Cumulative Regret', fontsize=12)
         ax1.legend(loc='best')
         ax1.set_title(f'Cumulative Regret, d={self.d}, K={self.K}, tau={self.tau}', fontsize=14)
+        ax1.grid(True, alpha=0.3)
 
-        # Plot the number of different actions
+        # Right plot: Number of different actions
         ax2 = axes[1]
         ax2.plot(num_diff, 'g-', linewidth=1.5)
-        ax2.axhline(y=np.mean(num_diff), color='orange', linestyle='--', label=f'Mean: {np.mean(num_diff):.3f}')
+        ax2.axhline(y=np.mean(num_diff), color='orange', linestyle='--', 
+                   label=f'Mean: {np.mean(num_diff):.3f}')
         ax2.set_xlabel('Simulation', fontsize=12)
         ax2.set_ylabel('Proportion of Different Actions', fontsize=12)
         ax2.set_title('Action Disagreement between Algorithms', fontsize=14)
         ax2.legend()
+        ax2.grid(True, alpha=0.3)
 
         plt.tight_layout()
         plt.savefig(f'results/simulation_results_d{self.d}_K{self.K}_tau{self.tau}.pdf', 
@@ -222,8 +249,8 @@ class SimulationStudy:
 
         # Print summary statistics
         print(f"\n=== Simulation Summary (n_sim={self.n_sim}) ===")
-        print(f"Final Median Regret - Risk Aware: {np.median(cumulated_regret_RiskAware[:,-1]):.2f}")
-        print(f"Final Median Regret - OLS: {np.median(cumulated_regret_OLS[:,-1]):.2f}")
+        print(f"Final Median Regret - Risk Aware: {np.median(cumulated_regret_RiskAware[:, -1]):.2f}")
+        print(f"Final Median Regret - OLS: {np.median(cumulated_regret_OLS[:, -1]):.2f}")
         print(f"Mean Action Disagreement: {np.mean(num_diff):.2%}")
         print(f"Std Action Disagreement: {np.std(num_diff):.2%}")
 
@@ -283,13 +310,14 @@ class SimulationStudy:
                    bbox_inches='tight', dpi=300)
         plt.show()
 
-## usage example:
+
+# Usage example:
 if __name__ == "__main__":
     n_sim = 50
     K = 2
     d = 10
-    T = 10
-    q = 0.1
+    T = 100
+    q = 2
     h = 0.5
     tau = 0.5
 
@@ -298,10 +326,13 @@ if __name__ == "__main__":
     err_generator = TGenerator(df=3)
     context_generator = NormalGenerator(mean=0.0, std=1.0)
 
-    study = SimulationStudy(n_sim=n_sim, K=K, d=d, T=T, q=q, h=h, tau=tau, random_seed=RANDOM_SEED,
-                                err_generator=err_generator,
-                                context_generator=context_generator)
+    study = SimulationStudy(
+        n_sim=n_sim, K=K, d=d, T=T, q=q, h=h, tau=tau, 
+        random_seed=RANDOM_SEED,
+        err_generator=err_generator,
+        context_generator=context_generator
+    )
 
     results = study.run_simulation()
     study.plot_regret_results(results=results, use_ci=True, ci_level=0.95)
-    study.plot_beta_error_results(results=results)
+    study.plot_beta_error_results(results=results, use_ci=True, ci_level=0.95)
