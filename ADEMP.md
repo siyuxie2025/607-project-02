@@ -45,6 +45,12 @@ Here, I compare the quantile appraoch with ordinary least square approach in [On
 | **Cumulative Regret** | Performance gap to oracle policy | $R_T = \sum (r^*_t - r_t)$ |
 | **Action Disagreement** | Proportion of rounds where RAB ≠ OLS action | $ \frac{1}{T} \sum 1(a_{OLS} \neq a_{RAB})$ |
 
+## Simulation Design Matrix
 
+| Generator | K | d | T | τ | n_sim | Notes |
+|:--|:--:|:--:|:--:|:--:|:--:|:--|
+| T(df in [1.5, 2.25, 3, 5, 10], scaler=0.7) | 2 | 10 | 1000 | 0.5 | 50 | different error distribution |
+| TruncNorm | 2 | 10 | 1000 | 0.5 | 50 | bounded contexts |
+| T(df=2.25) | 4 | 10 | 1000 | 0.5 | 50 | multi-arm test |
+| T(df=2.25) | 2 | 20 | 1000 | 0.5 | 50 | high-dimensional |
 
-Table of simulation design: 
