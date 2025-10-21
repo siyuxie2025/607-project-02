@@ -1,6 +1,10 @@
 ---
-ANALYSIS file for Project 2
+title: "Simulation for Bandit Algorithm Comparison"
+author: "Siyu Xie"
+date: "2025-10-21"
+geometry: margin=1in
 ---
+
 
 In this simulation study, I compared the performance of two bandit algorithms. The algorithm framework is given in [Algorithm Framework](https://github.com/siyuxie2025/607-project-02/blob/main/algorithm_framework.png). OLS bandit uses OLS update in the beta updating stage. 
 
@@ -17,16 +21,16 @@ Sample size : Time frame T may grow large, but up to some point, the proportion 
 I tried several different degrees of freedom for the error student t-distribution to avoid cherry-picking. 
 
 #### What are the limitations of your simulation study?
-I did not explore the impact of different β distribution and also the high-dimensional cases. 
+I did not explore the impact of different $\beta$ distribution and also the high-dimensional cases. 
 
 #### What scenarios did you not include, and why might they matter?
-When the target focuses on different quantile level, the results may differ a lot. However, I do not have a good benchmark algorith to compare with. It can be applied for conservative decision-making. 
+When the target focuses on different quantile level, the results may differ a lot. However, I do not have a good benchmark algorith to compare with. It can be applied for conservative decision-making. Also, I think it would be valuable to study the scenarios with multiple arms to choose from. 
 
 #### How do your results inform practice or theory?
-It aligns with the theory that a quantile estimator in this case provides a more robust and more accurate β estimation. But this can be inferred from the quantile regression property. 
+It aligns with the theory that a quantile estimator in this case provides a more robust and more accurate $\beta$ estimation. But this can be inferred from the quantile regression property. 
 
 #### What would you investigate next if you had more time/resources?
-I may want to work on high-dimensional setting simulation, as the main contribution of the paper was based on high-dimensional contextual data. 
+I may want to work on high-dimensional setting simulation, as the main contribution of the paper was based on high-dimensional contextual data. Also, multiple arms scenarios case is worth investigating. 
 
 #### Which aspects of the implementation were most challenging?
 Modularize my code is definitely a pain. When I write them in functions, I get confused about which one should be called first. Also, the structure must be designed more carefully compared with working directly with interface notebook. Making the results reproducible -- adding a random seed in each part and creating a makefile are quite challenging. 
