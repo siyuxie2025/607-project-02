@@ -117,12 +117,12 @@ class SimulationStudy:
         # Risk Aware Bandit update
         rwd = np.dot(self.beta_real_value[a], x) + self.alpha_real_value[a]
         rwd_noisy = rwd + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng)[0] - self.q_err)
-        RAB.update_beta(x, rwd_noisy, t)
+        RAB.update_beta(rwd_noisy, t)
 
         # OLS Bandit update
         rwd_OLS = np.dot(self.beta_real_value[a_OLS], x) + self.alpha_real_value[a_OLS]
         rwd_OLS_noisy = rwd_OLS + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng)[0] - self.q_err)
-        OLSB.update_beta(x, rwd_OLS_noisy, t)
+        OLSB.update_beta(rwd_OLS_noisy, t)
 
         # Optimal rewards (same for both)
         opt_rwd = np.amax(np.dot(self.beta_real_value, x) + self.alpha_real_value)
@@ -389,7 +389,7 @@ if __name__ == "__main__":
     n_sim = 50
     K = 2
     d = 10
-    T = 100
+    T = 150
     q = 2
     h = 0.5
     tau = 0.5
