@@ -295,7 +295,7 @@ def main():
     n_sim = 50      # Number of simulation replications
     K = 2          # Number of arms
     d = 10         # Dimension of context vectors
-    T = 100        # Time horizon
+    T = 1000        # Time horizon
     q = 2          # Number of forced samples per arm per round
     h = 0.5        # Threshold for action selection
     tau = 0.5      # Quantile level for risk-aware approach
@@ -348,6 +348,35 @@ def main():
     print("="*80)
     print("ALL EXPERIMENTS COMPLETED SUCCESSFULLY!")
     print("="*80)
+
+    # Add to your main simulation code, right before running
+def diagnose_forced_sampling_schedule(K, q, T):
+    """Diagnose the forced sampling schedule."""
+    print(f"\n{'='*60}")
+    print(f"FORCED SAMPLING SCHEDULE (K={K}, q={q}, T={T})")
+    print(f"{'='*60}")
+    
+    n = 0
+    all_forced_timesteps = []
+    
+    for t in range(1, T+1):
+        # Check if new round starts
+        if t == ((2**n - 1)*K*q + 1):
+            forced_set = np.arange(t, t+q*K)
+            print(f"Round {n}: t={t}, set={list(forced_set)}")
+            all_forced_timesteps.extend(forced_set)
+            n += 1
+    
+    print(f"\nTotal forced sampling timesteps: {len(all_forced_timesteps)}")
+    print(f"Expected: {n} rounds × {K} arms × {q} samples = {n*K*q}")
+    
+    # Check for gaps or overlaps
+    all_forced_timesteps = sorted(all_forced_timesteps)
+    if len(all_forced_timesteps) != len(set(all_forced_timesteps)):
+        print("⚠️  WARNING: Duplicate forced sampling timesteps!")
+    
+    return all_forced_timesteps
+
 
 
 if __name__ == "__main__":
