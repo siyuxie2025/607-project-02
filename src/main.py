@@ -295,7 +295,7 @@ def main():
     n_sim = 50      # Number of simulation replications
     K = 2          # Number of arms
     d = 10         # Dimension of context vectors
-    T = 1000        # Time horizon
+    T = 100        # Time horizon
     q = 2          # Number of forced samples per arm per round
     h = 0.5        # Threshold for action selection
     tau = 0.5      # Quantile level for risk-aware approach
