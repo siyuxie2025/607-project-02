@@ -6,7 +6,7 @@ from scipy import stats
 import seaborn as sns
 from methods import RiskAwareBandit, OLSBandit
 from tqdm import tqdm
-from generators import NormalGenerator, TGenerator, UniformGenerator
+from generators import NormalGenerator, TGenerator, UniformGenerator, TruncatedNormalGenerator
 
 
 class SimulationStudy:
@@ -45,8 +45,9 @@ class SimulationStudy:
         beta2 = UniformGenerator(low=beta_low[1], high=beta_high[1]).generate((self.K-self.K//2, self.d), rng=self.rng)
         self.beta_real_value = np.vstack([beta1, beta2])
         
-        
-        self.alpha_real_value = UniformGenerator(low=beta_low, high=beta_high).generate(self.K, rng=self.rng)
+        alpha1 = UniformGenerator(low=beta_low[0], high=beta_high[0]).generate(self.K//2, rng=self.rng)
+        alpha2 = UniformGenerator(low=beta_low[0], high=beta_high[0]).generate(self.K-self.K//2, rng=self.rng)
+        self.alpha_real_value = np.concatenate([alpha1, alpha2])
 
         # Store results
         self.results = None
@@ -116,12 +117,12 @@ class SimulationStudy:
         # Risk Aware Bandit update
         rwd = np.dot(self.beta_real_value[a], x) + self.alpha_real_value[a]
         rwd_noisy = rwd + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng)[0] - self.q_err)
-        RAB.update_beta(rwd_noisy, t)
+        RAB.update_beta(x, rwd_noisy, t)
 
         # OLS Bandit update
         rwd_OLS = np.dot(self.beta_real_value[a_OLS], x) + self.alpha_real_value[a_OLS]
         rwd_OLS_noisy = rwd_OLS + (0.5 * x[-1] + 1) * (err_generator.generate(1, rng=self.rng)[0] - self.q_err)
-        OLSB.update_beta(rwd_OLS_noisy, t)
+        OLSB.update_beta(x, rwd_OLS_noisy, t)
 
         # Optimal rewards (same for both)
         opt_rwd = np.amax(np.dot(self.beta_real_value, x) + self.alpha_real_value)
@@ -395,8 +396,8 @@ if __name__ == "__main__":
 
     RANDOM_SEED = 1010
 
-    err_generator = TGenerator(df=3)
-    context_generator = NormalGenerator(mean=0.0, std=1.0)
+    err_generator = TGenerator(df=2.25, scale=0.7)
+    context_generator = TruncatedNormalGenerator(mean=0.0, std=1.0)
 
     study = SimulationStudy(
         n_sim=n_sim, K=K, d=d, T=T, q=q, h=h, tau=tau, 
