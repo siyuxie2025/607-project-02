@@ -1,6 +1,10 @@
+---
+ANALYSIS file for Project 2
+---
+
 In this simulation study, I compared the performance of two bandit algorithms. 
 
-### Algorithm: VaR Bandit Algorithm
+### Algorithm: Risk-aware Bandit Algorithm
 
 **Input parameters:** \( q, h, \tau \)
 
@@ -11,7 +15,7 @@ For all \( i \in [K] \), set
 \hat{\beta}_{\mathcal{T}_{i,0}} = \hat{\beta}_{\mathcal{S}_{i,0}} = 0 \in \mathbb{R}^d
 \]
 
----
+___
 **For** \( t \in [T] \):  
 1. Observe \( X_t \sim \mathcal{P}_{\mathcal{X}} \).  
 2. **If** \( t \in \mathcal{T}_{i} \):  
@@ -59,7 +63,8 @@ For all \( i \in [K] \), set
      \sum_{r \in \mathcal{S}_{i,t}}
      \rho_\tau(Y_r - X_r^\top \beta)
      \]
----
+___
+
 
 OLS bandit uses OLS update in the beta updating stage. 
 
@@ -85,7 +90,10 @@ When the target focuses on different quantile level, the results may differ a lo
 It aligns with the theory that a quantile estimator in this case provides a more robust and more accurate β estimation. But this can be inferred from the quantile regression property. 
 
 ### What would you investigate next if you had more time/resources?
-I may want to work on high-dimensional setting simulation. 
+I may want to work on high-dimensional setting simulation, as the main contribution of the paper was based on high-dimensional contextual data. 
 
 ### Which aspects of the implementation were most challenging?
 Modularize my code is definitely a pain. When I write them in functions, I get confused about which one should be called first. Also, the structure must be designed more carefully compared with working directly with interface notebook. Making the results reproducible -- adding a random seed in each part and creating a makefile are quite challenging. 
+
+### How confident are you in your results? What could undermine that confidence?
+I feel quite confident in my simulation results. 
