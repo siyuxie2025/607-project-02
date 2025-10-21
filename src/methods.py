@@ -46,7 +46,7 @@ class ForcedSamplingBandit(ABC):
         pass
 
     @abstractmethod
-    def update_beta(self, rwd, t):
+    def update_beta(self, x, rwd, t):
         '''
         Update the estimators based on the received reward.
 
@@ -152,7 +152,7 @@ class RiskAwareBandit(ForcedSamplingBandit):
 
         return self.action
     
-    def update_beta(self, rwd, t):
+    def update_beta(self, x, rwd, t):
         """ Update the estimators based on the received reward.
         For the first d samples, random initialization is used.
 
@@ -185,8 +185,8 @@ class RiskAwareBandit(ForcedSamplingBandit):
             self.beta_error_t[self.action] = np.linalg.norm(self.beta_t[self.action] - self.beta_real_value[self.action])
             return
         else:
-            self.Tr[self.action].append(rwd)
             self.Sr[self.action].append(rwd)
+            self.Tr[self.action].append(rwd)
             self.beta_t[self.action] = np.random.uniform(0., 2., self.d)
             self.beta_a[self.action] = np.random.uniform(0., 2., self.d)
             self.alpha_t[self.action] = np.random.uniform(0., 2.)
@@ -247,7 +247,7 @@ class OLSBandit(ForcedSamplingBandit):
         return self.action
 
 
-    def update_beta(self, rwd, t):
+    def update_beta(self, x, rwd, t):
         """Update the estimators based on the received reward.
         """
         if np.array(self.Tx[self.action]).shape[0] > self.d:
@@ -266,8 +266,8 @@ class OLSBandit(ForcedSamplingBandit):
             self.beta_error_t[self.action] = np.linalg.norm(self.beta_t[self.action] - self.beta_real_value[self.action])
             return
         else:
-            self.Tr[self.action].append(rwd)
             self.Sr[self.action].append(rwd)
+            self.Tr[self.action].append(rwd)
             self.beta_t[self.action] = np.random.uniform(0., 2., self.d)
             self.beta_a[self.action] = np.random.uniform(0., 2., self.d)
 
