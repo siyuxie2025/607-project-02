@@ -58,5 +58,5 @@ About 8 minutes with make all command.
 When the number of arms $K=2$, the cumulative regret for risk-aware bandit is slightly better than the OLS bandit, especially when the error distribution is heavy-tailed. But as the degree of freedom increases, the advantage becomes less. 
 
 ![Beta MSE comparison](results/main_beta_error_comparison_K2_d10_T1000.png)
-RAB (Risk-aware Bandit) has an obvious advantage for the recovery of the true beta value. 
+RAB (Risk-aware Bandit) has an obvious advantage for the recovery of the true beta value, especially when the error has heavy-tailed distributions. 
 
