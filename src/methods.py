@@ -46,7 +46,7 @@ class ForcedSamplingBandit(ABC):
         pass
 
     @abstractmethod
-    def update_beta(self, x, rwd, t):
+    def update_beta(self, rwd, t):
         '''
         Update the estimators based on the received reward.
 
@@ -141,32 +141,26 @@ class RiskAwareBandit(ForcedSamplingBandit):
             ind = list(self.set).index(t)
             self.action = int(ind // self.q)
             self.Tx[self.action].append(x)
+            self.Sx[self.action].append(x)
         else:
             forced_est = np.dot(self.beta_t, x) + self.alpha_t
             max_forced_est = np.amax(forced_est)
             K_hat = np.where(forced_est > max_forced_est - self.h/2.)[0]
             all_est = [np.dot(self.beta_a[k_hat], x) + self.alpha_a[k_hat] for k_hat in K_hat]
             self.action = K_hat[np.argmax(all_est)]
+            self.Sx[self.action].append(x)
 
-        self.Sx[self.action].append(x)
+        # self.Sx[self.action].append(x)
 
         return self.action
     
-    def update_beta(self, x, rwd, t):
+    def update_beta(self, rwd, t):
         """ Update the estimators based on the received reward.
         For the first d samples, random initialization is used.
-
-        Parameters
-        ----------
-        rwd : float
-            The reward received after taking the action.
-        t : int
-            The current time step.
-        Returns
-        -------
-        None
         """
+        # Now check if we have enough samples to fit
         if np.array(self.Tx[self.action]).shape[0] > self.d:
+            # Fit forced sampling estimator if we're in forced sampling set
             if t in self.set:
                 self.Tr[self.action].append(rwd)
                 forced_qr = low_dim(np.array(self.Tx[self.action]), 
@@ -175,27 +169,34 @@ class RiskAwareBandit(ForcedSamplingBandit):
                 self.beta_t[self.action] = forced_qr['beta'][1:]
                 self.alpha_t[self.action] = forced_qr['beta'][0]
 
+            # Always fit all-sample estimator
             self.Sr[self.action].append(rwd)
             all_qr = low_dim(np.array(self.Sx[self.action]), 
                             np.array(self.Sr[self.action]), 
                             intercept=True).fit(tau=self.tau)
             self.beta_a[self.action] = all_qr['beta'][1:]
             self.alpha_a[self.action] = all_qr['beta'][0]
-            self.beta_error_a[self.action] = np.linalg.norm(self.beta_a[self.action] - self.beta_real_value[self.action])
-            self.beta_error_t[self.action] = np.linalg.norm(self.beta_t[self.action] - self.beta_real_value[self.action])
-            return
         else:
+            if t in self.set:
+                self.Tr[self.action].append(rwd)
+                forced_qr = low_dim(np.array(self.Tx[self.action]), 
+                                    np.array(self.Tr[self.action]), 
+                                    intercept=True).fit(tau=self.tau)
+                self.beta_t[self.action] = forced_qr['beta'][1:]
+                self.alpha_t[self.action] = forced_qr['beta'][0]
             self.Sr[self.action].append(rwd)
-            self.Tr[self.action].append(rwd)
             self.beta_t[self.action] = np.random.uniform(0., 2., self.d)
             self.beta_a[self.action] = np.random.uniform(0., 2., self.d)
             self.alpha_t[self.action] = np.random.uniform(0., 2.)
             self.alpha_a[self.action] = np.random.uniform(0., 2.)
-
-            self.beta_error_a[self.action] = np.linalg.norm(self.beta_a[self.action] - self.beta_real_value[self.action])
-            self.beta_error_t[self.action] = np.linalg.norm(self.beta_t[self.action] - self.beta_real_value[self.action])
-            return 
         
+        # Always update errors
+        self.beta_error_a[self.action] = np.linalg.norm(
+            self.beta_a[self.action] - self.beta_real_value[self.action]
+        )
+        self.beta_error_t[self.action] = np.linalg.norm(
+            self.beta_t[self.action] - self.beta_real_value[self.action]
+        )
 
 class OLSBandit(ForcedSamplingBandit):
     def __init__(self, q, h, d, K, beta_real_value):
@@ -247,7 +248,7 @@ class OLSBandit(ForcedSamplingBandit):
         return self.action
 
 
-    def update_beta(self, x, rwd, t):
+    def update_beta(self, rwd, t):
         """Update the estimators based on the received reward.
         """
         if np.array(self.Tx[self.action]).shape[0] > self.d:
@@ -264,13 +265,16 @@ class OLSBandit(ForcedSamplingBandit):
 
             self.beta_error_a[self.action] = np.linalg.norm(self.beta_a[self.action] - self.beta_real_value[self.action])
             self.beta_error_t[self.action] = np.linalg.norm(self.beta_t[self.action] - self.beta_real_value[self.action])
-            return
         else:
+            if t in self.set:
+                self.Tr[self.action].append(rwd)
+                forced_ols = LinearRegression(fit_intercept=False)
+                forced_ols.fit(np.array(self.Tx[self.action]), np.array(self.Tr[self.action]))
+                self.beta_t[self.action] = forced_ols.coef_
             self.Sr[self.action].append(rwd)
-            self.Tr[self.action].append(rwd)
+            # self.Tr[self.action].append(rwd)
             self.beta_t[self.action] = np.random.uniform(0., 2., self.d)
             self.beta_a[self.action] = np.random.uniform(0., 2., self.d)
 
             self.beta_error_a[self.action] = np.linalg.norm(self.beta_a[self.action] - self.beta_real_value[self.action])
             self.beta_error_t[self.action] = np.linalg.norm(self.beta_t[self.action] - self.beta_real_value[self.action])
-            return
