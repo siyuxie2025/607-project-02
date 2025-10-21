@@ -8,7 +8,7 @@ geometry: margin=1in
 
 In this simulation study, I compared the performance of two bandit algorithms. The algorithm framework is given in [Algorithm Framework](https://github.com/siyuxie2025/607-project-02/blob/main/algorithm_framework.png). OLS bandit uses OLS update in the beta updating stage. Relevent code is uploaded on [Project02](https://github.com/siyuxie2025/607-project-02).
 
-##p# Why these DGPs? Why these sample sizes/conditions?
+### Why these DGPs? Why these sample sizes/conditions?
 Truncated normal contextual vector : Following the theoretical part of [Online Decision Making with High-Dimensional Covariates](https://pubsonline.informs.org/doi/abs/10.1287/opre.2019.1902), we require the l-2 norm of contextual vector is bounded. 
 
 Two different uniformly distributed beta : With assumption 2, we expect the arms are "distinguishable" with high probability. Uniform distribution can be easily generated with some overlapping. 
