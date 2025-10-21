@@ -7,7 +7,9 @@ import seaborn as sns
 from methods import RiskAwareBandit, OLSBandit
 from tqdm import tqdm
 from generators import NormalGenerator, TGenerator, UniformGenerator, TruncatedNormalGenerator
-
+import pickle
+import os
+from datetime import datetime
 
 class SimulationStudy:
     """
@@ -174,6 +176,169 @@ class SimulationStudy:
         }
         
         return self.results
+    
+    def save_results(self, filepath=None, save_metadata=True):
+        """
+        Save simulation results to disk.
+        
+        Parameters
+        ----------
+        filepath : str, optional
+            Path to save results. If None, generates automatic filename.
+        save_metadata : bool, optional
+            Whether to save metadata alongside results
+        
+        Returns
+        -------
+        str
+            Path where results were saved
+        """
+        if self.results is None:
+            raise ValueError("No results to save. Run simulation first.")
+        
+        # Create results directory if it doesn't exist
+        os.makedirs('results', exist_ok=True)
+        
+        # Generate automatic filename if not provided
+        if filepath is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            err_name = self.err_generator.name.replace('(', '').replace(')', '').replace('=', '').replace(',', '_').replace(' ', '')
+            filepath = f'results/simulation_{err_name}_K{self.K}_d{self.d}_T{self.T}_{timestamp}.pkl'
+        
+        # Save results using pickle
+        with open(filepath, 'wb') as f:
+            pickle.dump(self.results, f)
+        
+        print(f"Results saved to: {filepath}")
+        
+        # Save metadata if requested
+        if save_metadata:
+            metadata_path = filepath.replace('.pkl', '_metadata.json')
+            metadata = {
+                'n_sim': self.n_sim,
+                'K': self.K,
+                'd': self.d,
+                'T': self.T,
+                'q': self.q,
+                'h': self.h,
+                'tau': self.tau,
+                'random_seed': self.random_seed,
+                'err_generator': self.err_generator.name,
+                'context_generator': self.context_generator.name,
+                'timestamp': datetime.now().isoformat(),
+                'results_shapes': {
+                    'cumulated_regret_RiskAware': self.results['cumulated_regret_RiskAware'].shape,
+                    'cumulated_regret_OLS': self.results['cumulated_regret_OLS'].shape,
+                    'beta_errors_rab': self.results['beta_errors_rab'].shape,
+                    'beta_errors_ols': self.results['beta_errors_ols'].shape,
+                }
+            }
+            
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
+            
+            print(f"Metadata saved to: {metadata_path}")
+        
+        return filepath
+    
+    @classmethod
+    def load_results(cls, filepath):
+        """
+        Load previously saved simulation results.
+        
+        Parameters
+        ----------
+        filepath : str
+            Path to the saved results file
+        
+        Returns
+        -------
+        dict
+            Dictionary containing simulation results
+        """
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Results file not found: {filepath}")
+        
+        with open(filepath, 'rb') as f:
+            results = pickle.load(f)
+        
+        print(f"Results loaded from: {filepath}")
+        
+        # Try to load metadata if it exists
+        metadata_path = filepath.replace('.pkl', '_metadata.json')
+        if os.path.exists(metadata_path):
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+            print(f"Metadata loaded from: {metadata_path}")
+            return results, metadata
+        
+        return results
+
+    def save_summary_statistics(self, filepath=None):
+        """
+        Save summary statistics to CSV file.
+        
+        Parameters
+        ----------
+        filepath : str, optional
+            Path to save CSV. If None, generates automatic filename.
+        
+        Returns
+        -------
+        str
+            Path where summary was saved
+        """
+        if self.results is None:
+            raise ValueError("No results to summarize. Run simulation first.")
+        
+        # Create results directory
+        os.makedirs('results', exist_ok=True)
+        
+        # Generate filename if not provided
+        if filepath is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filepath = f'results/summary_statistics_{timestamp}.csv'
+        
+        # Calculate summary statistics
+        summary_data = []
+        
+        for method, regret_key in [('RiskAware', 'cumulated_regret_RiskAware'), 
+                                     ('OLS', 'cumulated_regret_OLS')]:
+            regret = self.results[regret_key]
+            final_regret = regret[:, -1]
+            
+            summary_data.append({
+                'Method': method,
+                'Mean_Final_Regret': np.mean(final_regret),
+                'Median_Final_Regret': np.median(final_regret),
+                'Std_Final_Regret': np.std(final_regret),
+                'Min_Final_Regret': np.min(final_regret),
+                'Max_Final_Regret': np.max(final_regret),
+                'Q25_Final_Regret': np.percentile(final_regret, 25),
+                'Q75_Final_Regret': np.percentile(final_regret, 75),
+            })
+        
+        # Add beta error statistics
+        for method, error_key in [('RiskAware', 'beta_errors_rab'), 
+                                   ('OLS', 'beta_errors_ols')]:
+            errors = self.results[error_key][:, -1, :]  # Final timestep, all arms
+            avg_error = np.mean(errors, axis=1)  # Average across arms
+            
+            summary_data[-1 if method == 'OLS' else -2].update({
+                'Mean_Final_Beta_Error': np.mean(avg_error),
+                'Median_Final_Beta_Error': np.median(avg_error),
+                'Std_Final_Beta_Error': np.std(avg_error),
+            })
+        
+        # Create DataFrame and save
+        df = pd.DataFrame(summary_data)
+        df.to_csv(filepath, index=False)
+        
+        print(f"Summary statistics saved to: {filepath}")
+        print("\nSummary Statistics:")
+        print(df.to_string(index=False))
+        
+        return filepath
 
     def plot_regret_results(self, results=None, figsize=(10, 6), use_ci=True, ci_level=0.95):
         """Plot simulation results with confidence intervals or min/max ranges."""
@@ -408,6 +573,9 @@ if __name__ == "__main__":
 
     results = study.run_simulation()
     study.plot_regret_results(use_ci=True, ci_level=0.95)
+    
+    results_path = study.save_results()
+    study.save_summary_statistics()
 
     # Option 1: Plot all arms together (default)
     study.plot_beta_error_results(use_ci=True, ci_level=0.95, separate_arms=False)
