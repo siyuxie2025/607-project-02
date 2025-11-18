@@ -9,7 +9,7 @@ This repository includes code on the comparison between a Risk-aware Contextual 
 1. **Clone the repository:**
 ```bash
 git clone <repository-url>
-cd bandit-simulation
+cd 607project2
 ```
 
 2. **Install dependencies:**
