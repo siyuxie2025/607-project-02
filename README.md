@@ -8,8 +8,8 @@ This repository includes code on the comparison between a Risk-aware Contextual 
 
 1. **Clone the repository:**
 ```bash
-git clone <repository-url>
-cd 607project2
+git clone https://github.com/siyuxie2025/607-project-02
+cd 607-project-02
 ```
 
 2. **Install dependencies:**
